@@ -1,0 +1,34 @@
+{
+  "name": "treasure-hunt",
+  "version": "1.0.0",
+  "private": true,
+  "description": "寻宝记 - A location-based item collection game",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "backend": "yarn workspace @treasure-hunt/backend",
+    "mobile": "yarn workspace @treasure-hunt/mobile",
+    "web": "yarn workspace @treasure-hunt/web",
+    "shared": "yarn workspace @treasure-hunt/shared",
+    "dev:backend": "yarn workspace @treasure-hunt/backend start:dev",
+    "dev:mobile": "yarn workspace @treasure-hunt/mobile start",
+    "dev:web": "yarn workspace @treasure-hunt/web dev",
+    "build:backend": "yarn workspace @treasure-hunt/backend build",
+    "build:web": "yarn workspace @treasure-hunt/web build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "lint": "yarn workspaces run lint",
+    "test": "yarn workspaces run test",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "yarn@1.22.22"
+}
