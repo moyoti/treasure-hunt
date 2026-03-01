@@ -4,13 +4,16 @@ import {
   Post,
   Body,
   Query,
-  Param,
   UseGuards,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import { SpawnService } from './spawn.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CollectItemDto } from './dto/collect-item.dto';
+import { NearbyQueryDto } from './dto/nearby-query.dto';
 
 @Controller('spawned-items')
 @UseGuards(JwtAuthGuard)
@@ -18,15 +21,11 @@ export class SpawnController {
   constructor(private readonly spawnService: SpawnService) {}
 
   @Get('nearby')
-  async getNearbyItems(
-    @Query('lat') latitude: string,
-    @Query('lng') longitude: string,
-    @Query('radius') radius?: string,
-  ) {
+  async getNearbyItems(@Query() query: NearbyQueryDto) {
     return this.spawnService.getNearbySpawnedItems(
-      parseFloat(latitude),
-      parseFloat(longitude),
-      radius ? parseFloat(radius) : 5,
+      query.lat,
+      query.lng,
+      query.radius || 5,
     );
   }
 
@@ -36,6 +35,8 @@ export class SpawnController {
   }
 
   @Post('spawn')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
   async spawnItems(@Query('count') count?: string) {
     return this.spawnService.spawnItemsAtPois(count ? parseInt(count) : 50);
   }

@@ -1,17 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Between } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { SpawnedItem } from './entities/spawned-item.entity';
 import { ItemService } from '../item/item.service';
 import { PoiService } from '../poi/poi.service';
+import { InventoryService } from '../inventory/inventory.service';
 import { CollectItemDto } from './dto/collect-item.dto';
 
-// Collection radius in meters
 const COLLECTION_RADIUS_METERS = 50;
 
 @Injectable()
-export class SpawnService {
+export class SpawnService implements OnModuleInit {
   private readonly logger = new Logger(SpawnService.name);
 
   constructor(
@@ -19,10 +19,18 @@ export class SpawnService {
     private spawnedItemRepository: Repository<SpawnedItem>,
     private itemService: ItemService,
     private poiService: PoiService,
-    private dataSource: DataSource,
+    private inventoryService: InventoryService,
   ) {}
 
-  // Spawn items every hour at random POIs
+  async onModuleInit() {
+    // 启动时自动生成宝藏
+    const count = await this.spawnedItemRepository.count();
+    if (count === 0) {
+      this.logger.log('No spawned items found, generating initial items...');
+      await this.spawnItemsAtPois(30);
+    }
+  }
+
   @Cron(CronExpression.EVERY_HOUR)
   async handleScheduledSpawn() {
     this.logger.log('Starting scheduled item spawn...');
@@ -35,13 +43,11 @@ export class SpawnService {
 
     for (const poi of pois) {
       const item = await this.itemService.getRandomItemByWeight();
-      
-      // Add small random offset from POI (within 30 meters)
       const offset = this.getRandomOffset(30);
       
       const spawnedItem = this.spawnedItemRepository.create({
-        latitude: poi.latitude + offset.lat,
-        longitude: poi.longitude + offset.lng,
+        latitude: Number(poi.latitude) + offset.lat,
+        longitude: Number(poi.longitude) + offset.lng,
         item,
         itemId: item.id,
         isActive: true,
@@ -58,35 +64,31 @@ export class SpawnService {
     return spawnedItems;
   }
 
-  async getNearbySpawnedItems(
-    latitude: number,
-    longitude: number,
-    radiusKm: number = 5,
-  ): Promise<SpawnedItem[]> {
-    // Use raw SQL with PostGIS for efficient spatial query
-    const query = `
-      SELECT si.*, i.name as "itemName", i.rarity as "itemRarity", i."iconUrl" as "itemIconUrl"
-      FROM spawned_items si
-      JOIN items i ON si."itemId" = i.id
-      WHERE si."isActive" = true
-        AND si."expiresAt" > NOW()
-        AND ST_DWithin(
-          ST_MakePoint(si.longitude, si.latitude)::geography,
-          ST_MakePoint($2, $1)::geography,
-          $3 * 1000
-        )
-      ORDER BY si."createdAt" DESC
-      LIMIT 100
-    `;
+  async getNearbySpawnedItems(latitude: number, longitude: number, radiusKm: number = 5): Promise<SpawnedItem[]> {
+    const latRange = radiusKm / 111.32;
+    const lngRange = radiusKm / (111.32 * Math.cos((latitude * Math.PI) / 180));
 
-    const results = await this.dataSource.query(query, [latitude, longitude, radiusKm]);
-    return results;
+    const items = await this.spawnedItemRepository
+      .createQueryBuilder('si')
+      .leftJoinAndSelect('si.item', 'item')
+      .where('si.isActive = :isActive', { isActive: true })
+      .andWhere('si.expiresAt > :now', { now: new Date() })
+      .andWhere('si.latitude BETWEEN :minLat AND :maxLat', {
+        minLat: latitude - latRange,
+        maxLat: latitude + latRange,
+      })
+      .andWhere('si.longitude BETWEEN :minLng AND :maxLng', {
+        minLng: longitude - lngRange,
+        maxLng: longitude + lngRange,
+      })
+      .orderBy('si.createdAt', 'DESC')
+      .limit(100)
+      .getMany();
+
+    return items;
   }
 
-  async collectItem(
-    userId: string,
-    collectDto: CollectItemDto,
-  ): Promise<{ success: boolean; item: any; distance: number }> {
+  async collectItem(userId: string, collectDto: CollectItemDto): Promise<{ success: boolean; item: any; distance: number }> {
     const { spawnedItemId, latitude, longitude } = collectDto;
 
     const spawnedItem = await this.spawnedItemRepository.findOne({
@@ -95,38 +97,33 @@ export class SpawnService {
     });
 
     if (!spawnedItem) {
-      throw new Error('Item not found or already collected');
+      throw new NotFoundException('Item not found or already collected');
     }
 
     if (new Date() > spawnedItem.expiresAt) {
       throw new Error('Item has expired');
     }
 
-    // Calculate distance using Haversine formula
-    const distance = this.calculateDistance(
-      latitude,
-      longitude,
-      spawnedItem.latitude,
-      spawnedItem.longitude,
-    );
+    const distance = this.calculateDistance(latitude, longitude, Number(spawnedItem.latitude), Number(spawnedItem.longitude));
 
     if (distance > COLLECTION_RADIUS_METERS) {
-      return {
-        success: false,
-        item: spawnedItem.item,
-        distance,
-      };
+      return { success: false, item: spawnedItem.item, distance };
     }
 
-    // Mark as collected
+    // Mark item as collected
     spawnedItem.isActive = false;
     await this.spawnedItemRepository.save(spawnedItem);
 
-    return {
-      success: true,
-      item: spawnedItem.item,
-      distance,
-    };
+    // Add item to user's inventory
+    await this.inventoryService.addItemToInventory(
+      userId,
+      spawnedItem.item,
+      Number(spawnedItem.latitude),
+      Number(spawnedItem.longitude),
+      spawnedItem.poiName,
+    );
+
+    return { success: true, item: spawnedItem.item, distance };
   }
 
   async cleanupExpiredItems(): Promise<number> {
@@ -137,43 +134,28 @@ export class SpawnService {
   }
 
   private getExpirationDate(): Date {
-    // Items expire after 24 hours
     const date = new Date();
     date.setHours(date.getHours() + 24);
     return date;
   }
 
   private getRandomOffset(maxMeters: number): { lat: number; lng: number } {
-    // Convert meters to approximate degrees
-    const metersPerDegreeLat = 111320;
-    const metersPerDegreeLng = 111320 * Math.cos(0); // Approximate at equator
-
+    const metersPerDegree = 111320;
     const randomMeters = Math.random() * maxMeters;
     const angle = Math.random() * 2 * Math.PI;
-
-    const latOffset = (randomMeters * Math.cos(angle)) / metersPerDegreeLat;
-    const lngOffset = (randomMeters * Math.sin(angle)) / metersPerDegreeLng;
-
-    return { lat: latOffset, lng: lngOffset };
+    return {
+      lat: (randomMeters * Math.cos(angle)) / metersPerDegree,
+      lng: (randomMeters * Math.sin(angle)) / metersPerDegree,
+    };
   }
 
-  private calculateDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
-    const R = 6371000; // Earth's radius in meters
+  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000;
     const dLat = this.toRadians(lat2 - lat1);
     const dLon = this.toRadians(lon2 - lon1);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRadians(lat1)) *
-        Math.cos(this.toRadians(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }

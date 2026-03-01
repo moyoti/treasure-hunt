@@ -33,15 +33,13 @@ export class Item {
   description: string;
 
   @Column({
-    type: 'enum',
-    enum: ItemRarity,
+    type: 'text',
     default: ItemRarity.COMMON,
   })
   rarity: ItemRarity;
 
   @Column({
-    type: 'enum',
-    enum: ItemType,
+    type: 'text',
     default: ItemType.COLLECTIBLE,
   })
   type: ItemType;
@@ -58,7 +56,7 @@ export class Item {
   @Column({ nullable: true })
   modelUrl: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   metadata: Record<string, any>;
 
   @OneToMany(() => SpawnedItem, (spawnedItem) => spawnedItem.item)

@@ -40,20 +40,24 @@ export class ItemService {
   async getRandomItemByWeight(): Promise<Item> {
     // Get all items with their spawn weights
     const items = await this.itemRepository.find();
-    
+
+    if (items.length === 0) {
+      throw new NotFoundException('No items available for spawning. Please seed items first.');
+    }
+
     // Calculate total weight
     const totalWeight = items.reduce((sum, item) => sum + Number(item.spawnWeight), 0);
-    
+
     // Random selection based on weight
     let random = Math.random() * totalWeight;
-    
+
     for (const item of items) {
       random -= Number(item.spawnWeight);
       if (random <= 0) {
         return item;
       }
     }
-    
+
     // Fallback to first item
     return items[0];
   }

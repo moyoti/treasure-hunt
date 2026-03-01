@@ -24,16 +24,13 @@ export class POI {
   @Column({ type: 'decimal', precision: 10, scale: 7 })
   longitude: number;
 
-  @Column({ type: 'geometry', spatialFeatureType: 'Point', srid: 4326, nullable: true })
-  location: any;
-
   @Column({ nullable: true })
   category: string;
 
   @Column({ nullable: true })
   osmId: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   metadata: Record<string, any>;
 
   @Column({ default: true })

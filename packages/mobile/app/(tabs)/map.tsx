@@ -8,7 +8,7 @@ import {
   Text,
   ActivityIndicator,
 } from 'react-native';
-import Mapbox from '@rnmapbox/maps';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
 import { getNearbyItems, collectItem } from '@/api/items';
@@ -16,8 +16,13 @@ import { ItemRarity } from '@/types';
 
 const { width, height } = Dimensions.get('window');
 
-// Note: You need to set your Mapbox access token
-// Mapbox.setAccessToken('your-mapbox-token');
+// Default region (San Francisco)
+const DEFAULT_REGION = {
+  latitude: 37.78825,
+  longitude: -122.4324,
+  latitudeDelta: 0.0922,
+  longitudeDelta: 0.0421,
+};
 
 interface SpawnedItem {
   id: string;
@@ -36,16 +41,25 @@ const RARITY_COLORS: Record<ItemRarity, string> = {
   legendary: '#fbbf24',
 };
 
+const RARITY_EMOJI: Record<ItemRarity, string> = {
+  common: '💎',
+  rare: '💠',
+  epic: '💜',
+  legendary: '👑',
+};
+
 export default function MapScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [items, setItems] = useState<SpawnedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<SpawnedItem | null>(null);
+  const [mapRegion, setMapRegion] = useState(DEFAULT_REGION);
 
   const requestLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('提示', '需要位置权限才能显示附近宝藏');
+      setLoading(false);
       return;
     }
 
@@ -53,6 +67,12 @@ export default function MapScreen() {
       accuracy: Location.Accuracy.High,
     });
     setLocation(loc);
+    setMapRegion({
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    });
   };
 
   const fetchNearbyItems = async () => {
@@ -99,7 +119,6 @@ export default function MapScreen() {
           `你获得了 ${item.itemName}！\n稀有度: ${item.itemRarity}`,
           [{ text: '太棒了', onPress: () => setSelectedItem(null) }]
         );
-        // Refresh items
         fetchNearbyItems();
       } else {
         Alert.alert(
@@ -113,6 +132,10 @@ export default function MapScreen() {
     }
   };
 
+  const handleMarkerPress = (item: SpawnedItem) => {
+    setSelectedItem(item);
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -124,45 +147,55 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Map placeholder - In production, use Mapbox */}
-      <View style={styles.mapPlaceholder}>
-        {location ? (
-          <Text style={styles.coordinates}>
-            位置: {location.coords.latitude.toFixed(4)}, {location.coords.longitude.toFixed(4)}
-          </Text>
-        ) : (
-          <Text style={styles.coordinates}>无法获取位置</Text>
-        )}
-        
-        {/* Item markers */}
-        <View style={styles.markersContainer}>
-          {items.map((item) => (
-            <TouchableOpacity
-              key={item.id}
+      <MapView
+        style={styles.map}
+        provider={PROVIDER_DEFAULT}
+        region={mapRegion}
+        showsUserLocation={true}
+        showsMyLocationButton={true}
+        followsUserLocation={false}
+        onRegionChangeComplete={setMapRegion}
+      >
+        {items.map((item) => (
+          <Marker
+            key={item.id}
+            coordinate={{
+              latitude: item.latitude,
+              longitude: item.longitude,
+            }}
+            title={item.itemName}
+            description={`${item.itemRarity} - ${item.poiName || '宝藏'}`}
+            onPress={() => handleMarkerPress(item)}
+          >
+            <View
               style={[
-                styles.itemMarker,
+                styles.markerContainer,
                 { borderColor: RARITY_COLORS[item.itemRarity] },
               ]}
-              onPress={() => setSelectedItem(item)}
             >
-              <Text style={styles.itemMarkerText}>💎</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+              <Text style={styles.markerEmoji}>
+                {RARITY_EMOJI[item.itemRarity]}
+              </Text>
+            </View>
+          </Marker>
+        ))}
+      </MapView>
 
       {/* Selected item modal */}
       {selectedItem && (
         <View style={styles.modal}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{selectedItem.itemName}</Text>
-            <Text style={styles.modalRarity}>
+            <Text
+              style={[
+                styles.modalRarity,
+                { color: RARITY_COLORS[selectedItem.itemRarity] },
+              ]}
+            >
               稀有度: {selectedItem.itemRarity}
             </Text>
             {selectedItem.poiName && (
-              <Text style={styles.modalLocation}>
-                位置: {selectedItem.poiName}
-              </Text>
+              <Text style={styles.modalLocation}>位置: {selectedItem.poiName}</Text>
             )}
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -184,14 +217,12 @@ export default function MapScreen() {
 
       {/* Nearby items count */}
       <View style={styles.itemsCount}>
-        <Text style={styles.itemsCountText}>
-          附近有 {items.length} 个宝藏
-        </Text>
+        <Text style={styles.itemsCountText}>附近有 {items.length} 个宝藏</Text>
       </View>
 
       {/* Refresh button */}
       <TouchableOpacity style={styles.refreshButton} onPress={fetchNearbyItems}>
-        <Text style={styles.refreshButtonText}>🔄 刷新</Text>
+        <Text style={styles.refreshButtonText}>刷新</Text>
       </TouchableOpacity>
     </View>
   );
@@ -200,48 +231,40 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#FFF8E7',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#FFF8E7',
   },
   loadingText: {
-    color: '#888',
+    color: '#666',
     marginTop: 16,
     fontSize: 16,
+    fontWeight: '600',
   },
-  mapPlaceholder: {
-    flex: 1,
-    backgroundColor: '#1a1a2e',
+  map: {
+    width: width,
+    height: height,
+  },
+  markerContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  coordinates: {
-    color: '#888',
-    fontSize: 14,
-  },
-  markersContainer: {
-    position: 'absolute',
-    top: 100,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  itemMarker: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#2a2a3e',
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 8,
-    borderWidth: 2,
-  },
-  itemMarkerText: {
-    fontSize: 24,
+  markerEmoji: {
+    fontSize: 20,
   },
   modal: {
     position: 'absolute',
@@ -249,31 +272,33 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 16,
+    backgroundColor: '#FFF',
+    borderRadius: 20,
     padding: 24,
     width: width - 64,
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#333',
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: '900',
+    color: '#333',
     marginBottom: 8,
   },
   modalRarity: {
     fontSize: 16,
-    color: '#ffd700',
     marginBottom: 8,
+    fontWeight: '700',
   },
   modalLocation: {
     fontSize: 14,
-    color: '#888',
+    color: '#666',
     marginBottom: 24,
   },
   modalButtons: {
@@ -281,48 +306,56 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   modalButton: {
-    borderRadius: 12,
+    borderRadius: 25,
     padding: 16,
     paddingHorizontal: 32,
+    borderWidth: 3,
+    borderColor: '#333',
   },
   collectButton: {
-    backgroundColor: '#ffd700',
+    backgroundColor: '#FFD93D',
   },
   collectButtonText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1a1a2e',
+    fontWeight: '900',
+    color: '#333',
   },
   cancelButton: {
-    backgroundColor: '#333',
+    backgroundColor: '#FF6B6B',
   },
   cancelButtonText: {
     fontSize: 18,
-    color: '#fff',
+    fontWeight: '700',
+    color: '#FFF',
   },
   itemsCount: {
     position: 'absolute',
     top: 60,
     left: 16,
-    backgroundColor: 'rgba(26, 26, 46, 0.9)',
-    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderRadius: 15,
     padding: 12,
+    borderWidth: 3,
+    borderColor: '#333',
   },
   itemsCountText: {
-    color: '#fff',
+    color: '#333',
     fontSize: 14,
+    fontWeight: '700',
   },
   refreshButton: {
     position: 'absolute',
     bottom: 100,
     right: 16,
-    backgroundColor: '#ffd700',
-    borderRadius: 12,
+    backgroundColor: '#FFD93D',
+    borderRadius: 25,
     padding: 12,
     paddingHorizontal: 16,
+    borderWidth: 3,
+    borderColor: '#333',
   },
   refreshButtonText: {
-    color: '#1a1a2e',
-    fontWeight: 'bold',
+    color: '#333',
+    fontWeight: '900',
   },
 });

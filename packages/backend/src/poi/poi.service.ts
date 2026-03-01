@@ -13,11 +13,49 @@ export class PoiService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Seed some initial POIs if none exist
     const count = await this.poiRepository.count();
     if (count === 0) {
       await this.seedInitialPois();
     }
+  }
+
+  private async seedInitialPois() {
+    this.logger.log('Seeding initial POIs...');
+
+    // 北京地区的测试POI
+    const pois = [
+      { name: '天安门广场', latitude: 39.9087, longitude: 116.3975, category: 'landmark' },
+      { name: '故宫博物院', latitude: 39.9163, longitude: 116.3972, category: 'museum' },
+      { name: '景山公园', latitude: 39.9250, longitude: 116.3968, category: 'park' },
+      { name: '北海公园', latitude: 39.9250, longitude: 116.3838, category: 'park' },
+      { name: '什刹海', latitude: 39.9410, longitude: 116.3870, category: 'landmark' },
+      { name: '南锣鼓巷', latitude: 39.9370, longitude: 116.4020, category: 'shopping' },
+      { name: '鼓楼', latitude: 39.9430, longitude: 116.3930, category: 'landmark' },
+      { name: '雍和宫', latitude: 39.9470, longitude: 116.4170, category: 'temple' },
+      { name: '地坛公园', latitude: 39.9500, longitude: 116.4140, category: 'park' },
+      { name: '日坛公园', latitude: 39.9200, longitude: 116.4480, category: 'park' },
+      { name: '天坛公园', latitude: 39.8820, longitude: 116.4060, category: 'park' },
+      { name: '前门大街', latitude: 39.8980, longitude: 116.3980, category: 'shopping' },
+      { name: '王府井大街', latitude: 39.9130, longitude: 116.4100, category: 'shopping' },
+      { name: '西单商业街', latitude: 39.9100, longitude: 116.3730, category: 'shopping' },
+      { name: '三里屯', latitude: 39.9320, longitude: 116.4540, category: 'entertainment' },
+      { name: '国贸商圈', latitude: 39.9080, longitude: 116.4590, category: 'business' },
+      { name: '朝阳公园', latitude: 39.9440, longitude: 116.4720, category: 'park' },
+      { name: '奥林匹克公园', latitude: 40.0020, longitude: 116.3940, category: 'landmark' },
+      { name: '鸟巢', latitude: 39.9920, longitude: 116.3960, category: 'landmark' },
+      { name: '水立方', latitude: 39.9930, longitude: 116.3870, category: 'landmark' },
+    ];
+
+    for (const poiData of pois) {
+      const poi = this.poiRepository.create({
+        ...poiData,
+        description: `${poiData.name}附近的宝藏点`,
+        isActive: true,
+      });
+      await this.poiRepository.save(poi);
+    }
+
+    this.logger.log(`Seeded ${pois.length} POIs`);
   }
 
   async findAll(): Promise<POI[]> {
@@ -27,12 +65,7 @@ export class PoiService implements OnModuleInit {
     });
   }
 
-  async getNearbyPois(
-    latitude: number,
-    longitude: number,
-    radiusKm: number = 10,
-  ): Promise<POI[]> {
-    // Simple bounding box query for nearby POIs
+  async getNearbyPois(latitude: number, longitude: number, radiusKm: number = 10): Promise<POI[]> {
     const latRange = radiusKm / 111.32;
     const lngRange = radiusKm / (111.32 * Math.cos((latitude * Math.PI) / 180));
 
@@ -62,86 +95,5 @@ export class PoiService implements OnModuleInit {
   async createPoi(data: Partial<POI>): Promise<POI> {
     const poi = this.poiRepository.create(data);
     return this.poiRepository.save(poi);
-  }
-
-  async updatePoi(id: string, data: Partial<POI>): Promise<POI> {
-    await this.poiRepository.update(id, data);
-    const poi = await this.poiRepository.findOne({ where: { id } });
-    if (!poi) {
-      throw new Error('POI not found');
-    }
-    return poi;
-  }
-
-  private async seedInitialPois(): Promise<void> {
-    this.logger.log('Seeding initial POIs...');
-
-    // Sample POIs for major cities
-    const samplePois: Partial<POI>[] = [
-      // Beijing
-      { name: '天安门广场', latitude: 39.9087, longitude: 116.3975, category: 'landmark' },
-      { name: '故宫博物院', latitude: 39.9163, longitude: 116.3972, category: 'museum' },
-      { name: '颐和园', latitude: 39.9999, longitude: 116.2755, category: 'park' },
-      { name: '天坛公园', latitude: 39.8822, longitude: 116.4066, category: 'park' },
-      { name: '北京动物园', latitude: 39.9427, longitude: 116.3324, category: 'attraction' },
-      
-      // Shanghai
-      { name: '外滩', latitude: 31.2400, longitude: 121.4900, category: 'landmark' },
-      { name: '东方明珠塔', latitude: 31.2397, longitude: 121.4998, category: 'landmark' },
-      { name: '豫园', latitude: 31.2271, longitude: 121.4869, category: 'park' },
-      { name: '上海迪士尼乐园', latitude: 31.1434, longitude: 121.6570, category: 'attraction' },
-      
-      // Shenzhen
-      { name: '世界之窗', latitude: 22.5347, longitude: 113.9748, category: 'attraction' },
-      { name: '欢乐谷', latitude: 22.5470, longitude: 113.9824, category: 'attraction' },
-      { name: '深圳湾公园', latitude: 22.5040, longitude: 113.9370, category: 'park' },
-      
-      // Guangzhou
-      { name: '广州塔', latitude: 23.1066, longitude: 113.3245, category: 'landmark' },
-      { name: '白云山', latitude: 23.1834, longitude: 113.2989, category: 'park' },
-      { name: '陈家祠', latitude: 23.1255, longitude: 113.2516, category: 'museum' },
-      
-      // Hangzhou
-      { name: '西湖', latitude: 30.2590, longitude: 120.1480, category: 'park' },
-      { name: '灵隐寺', latitude: 30.2394, longitude: 120.1003, category: 'landmark' },
-      
-      // Chengdu
-      { name: '大熊猫繁育研究基地', latitude: 30.7325, longitude: 104.1465, category: 'attraction' },
-      { name: '宽窄巷子', latitude: 30.6706, longitude: 104.0620, category: 'attraction' },
-      
-      // Xi'an
-      { name: '秦始皇兵马俑博物馆', latitude: 34.3847, longitude: 109.2783, category: 'museum' },
-      { name: '大雁塔', latitude: 34.2186, longitude: 108.9646, category: 'landmark' },
-      
-      // Hong Kong
-      { name: '维多利亚港', latitude: 22.2855, longitude: 114.1577, category: 'landmark' },
-      { name: '香港迪士尼乐园', latitude: 22.3132, longitude: 114.0419, category: 'attraction' },
-      { name: '太平山顶', latitude: 22.2762, longitude: 114.1447, category: 'landmark' },
-      
-      // Taipei
-      { name: '台北101', latitude: 25.0339, longitude: 121.5620, category: 'landmark' },
-      { name: '士林夜市', latitude: 25.0881, longitude: 121.5249, category: 'market' },
-      
-      // International cities
-      { name: 'Times Square', latitude: 40.7580, longitude: -73.9855, category: 'landmark' },
-      { name: 'Central Park', latitude: 40.7829, longitude: -73.9654, category: 'park' },
-      { name: 'Statue of Liberty', latitude: 40.6892, longitude: -74.0445, category: 'landmark' },
-      { name: 'Eiffel Tower', latitude: 48.8584, longitude: 2.2945, category: 'landmark' },
-      { name: 'Louvre Museum', latitude: 48.8606, longitude: 2.3376, category: 'museum' },
-      { name: 'Big Ben', latitude: 51.5007, longitude: -0.1246, category: 'landmark' },
-      { name: 'Tower Bridge', latitude: 51.5055, longitude: -0.0754, category: 'landmark' },
-      { name: 'Sydney Opera House', latitude: -33.8568, longitude: 151.2153, category: 'landmark' },
-      { name: 'Tokyo Tower', latitude: 35.6586, longitude: 139.7454, category: 'landmark' },
-      { name: 'Senso-ji Temple', latitude: 35.7148, longitude: 139.7967, category: 'landmark' },
-      { name: 'Colosseum', latitude: 41.8902, longitude: 12.4922, category: 'landmark' },
-      { name: 'Sagrada Familia', latitude: 41.4036, longitude: 2.1744, category: 'landmark' },
-    ];
-
-    for (const poiData of samplePois) {
-      const poi = this.poiRepository.create(poiData);
-      await this.poiRepository.save(poi);
-    }
-
-    this.logger.log(`Seeded ${samplePois.length} POIs`);
   }
 }

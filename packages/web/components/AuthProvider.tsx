@@ -16,23 +16,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored session
-    const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    
-    if (storedUser && token) {
-      setUser(JSON.parse(storedUser));
+    // Check for stored session (only in browser environment)
+    if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+
+      if (storedUser && token) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (e) {
+          // Invalid JSON, clear storage
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+        }
+      }
     }
     setLoading(false);
   }, []);
 
   const handleSetUser = (newUser: User | null) => {
     setUser(newUser);
-    if (newUser) {
-      localStorage.setItem('user', JSON.stringify(newUser));
-    } else {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
+    if (typeof window !== 'undefined') {
+      if (newUser) {
+        localStorage.setItem('user', JSON.stringify(newUser));
+      } else {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
     }
   };
 

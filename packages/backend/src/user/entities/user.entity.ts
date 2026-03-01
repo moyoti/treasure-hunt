@@ -36,6 +36,9 @@ export class User {
   @Column({ default: false })
   isVerified: boolean;
 
+  @Column({ default: 'user' })
+  role: string; // 'user' or 'admin'
+
   @OneToMany(() => InventoryItem, (inventoryItem) => inventoryItem.user)
   inventoryItems: InventoryItem[];
 

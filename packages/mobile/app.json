@@ -6,25 +6,30 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "treasurehunt",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1a1a2e"
+      "backgroundColor": "#FFF8E7"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.treasurehunt.app",
+      "buildNumber": "1.0.0",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "我们需要您的位置来显示附近的宝藏",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "我们需要您的位置来检测附近的宝藏",
-        "NSLocationAlwaysUsageDescription": "我们需要您的位置来检测附近的宝藏"
+        "NSLocationAlwaysUsageDescription": "我们需要您的位置来检测附近的宝藏",
+        "UIUserInterfaceStyle": "Light"
+      },
+      "config": {
+        "googleMapsApiKey": ""
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1a1a2e"
+        "backgroundColor": "#FFF8E7"
       },
       "package": "com.treasurehunt.app",
       "permissions": [
@@ -45,12 +50,6 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
         }
-      ],
-      [
-        "@rnmapbox/maps",
-        {
-          "RNMapboxMapsVersion": "11.0.0"
-        }
       ]
     ],
     "experiments": {
@@ -61,7 +60,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "treasure-hunt-mobile"
       }
     }
   }

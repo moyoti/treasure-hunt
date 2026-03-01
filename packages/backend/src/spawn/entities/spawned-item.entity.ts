@@ -21,9 +21,6 @@ export class SpawnedItem {
   @Column({ type: 'decimal', precision: 10, scale: 7 })
   longitude: number;
 
-  @Column({ type: 'geometry', spatialFeatureType: 'Point', srid: 4326, nullable: true })
-  location: any;
-
   @ManyToOne(() => Item)
   @JoinColumn()
   item: Item;
@@ -34,7 +31,7 @@ export class SpawnedItem {
   @Column({ default: true })
   isActive: boolean;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'datetime' })
   expiresAt: Date;
 
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })

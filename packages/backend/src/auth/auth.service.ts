@@ -47,9 +47,7 @@ export class AuthService {
     return { user, token };
   }
 
-  async login(loginDto: LoginDto): Promise<{ user: User; token: string }> {
-    const { email, password } = loginDto;
-
+  async validateUser(email: string, password: string): Promise<User> {
     const user = await this.userRepository.findOne({ where: { email } });
 
     if (!user) {
@@ -66,8 +64,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const token = this.generateToken(user);
+    return user;
+  }
 
+  async login(user: User): Promise<{ user: User; token: string }> {
+    const token = this.generateToken(user);
     return { user, token };
   }
 
@@ -119,7 +120,7 @@ export class AuthService {
     return { user, token };
   }
 
-  async validateUser(userId: string): Promise<User | null> {
+  async validateUserById(userId: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { id: userId } });
   }
 

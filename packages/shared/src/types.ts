@@ -51,3 +51,32 @@ export interface InventoryItem {
   collectedAt: string;
   item: Item;
 }
+
+// Leaderboard types
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  username: string;
+  avatar: string | null;
+  collectionCount: number;
+  rareItems?: number;
+  epicItems?: number;
+  legendaryItems?: number;
+}
+
+// Achievement types
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  requirement: number;
+  type: 'collection' | 'rarity' | 'distance';
+}
+
+export interface UserAchievement {
+  achievement: Achievement;
+  progress: number;
+  completed: boolean;
+  completedAt: Date | null;
+}
