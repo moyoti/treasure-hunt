@@ -6,6 +6,9 @@ import { getNearbyItems, collectItem } from '@/lib/api';
 import { SpawnedItem, ItemRarity } from '@/types';
 import { useRouter } from 'next/navigation';
 
+// 高德地图 API Key
+const AMAP_KEY = '897b2837359811602eb5d7b8d38af011';
+
 const RARITY_COLORS: Record<ItemRarity, string> = {
   common: '#9ca3af',
   rare: '#3b82f6',
@@ -20,10 +23,11 @@ const RARITY_NAMES: Record<ItemRarity, string> = {
   legendary: '传说',
 };
 
-// 动态导入 Leaflet 以避免 SSR 问题
-let L: any = null;
-if (typeof window !== 'undefined') {
-  L = require('leaflet');
+// 声明高德地图全局对象
+declare global {
+  interface Window {
+    AMap: any;
+  }
 }
 
 export default function MapPage() {
@@ -34,7 +38,6 @@ export default function MapPage() {
   const [selectedItem, setSelectedItem] = useState<SpawnedItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -87,74 +90,90 @@ export default function MapPage() {
     }
   }, [user, fetchItems]);
 
-  // 初始化地图
+  // 初始化高德地图
   useEffect(() => {
-    if (!location || !mapRef.current || mapInstanceRef.current || !L) return;
+    if (!location || !mapRef.current || mapInstanceRef.current) return;
 
-    const container = mapRef.current;
-    if (container.offsetHeight === 0) {
-      const timer = setTimeout(() => setMapReady(true), 100);
-      return () => clearTimeout(timer);
-    }
+    const initMap = () => {
+      if (!window.AMap) {
+        setTimeout(initMap, 100);
+        return;
+      }
 
-    try {
-      const map = L.map(container, {
-        center: [location.lat, location.lng],
-        zoom: 15,
-        zoomControl: true,
-      });
+      try {
+        const map = new window.AMap.Map(mapRef.current, {
+          zoom: 15,
+          center: [location.lng, location.lat],
+          viewMode: '2D',
+        });
 
-      // 使用OpenStreetMap瓦片
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap',
-        maxZoom: 18,
-      }).addTo(map);
+        // 添加用户位置标记
+        const userMarker = new window.AMap.Marker({
+          position: [location.lng, location.lat],
+          icon: new window.AMap.Icon({
+            size: new window.AMap.Size(25, 34),
+            image: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
+              <svg xmlns="http://www.w3.org/2000/svg" width="25" height="34" viewBox="0 0 25 34">
+                <circle cx="12.5" cy="12.5" r="10" fill="#3b82f6" stroke="white" stroke-width="3"/>
+              </svg>
+            `),
+            imageSize: new window.AMap.Size(25, 34),
+          }),
+          offset: new window.AMap.Pixel(-12.5, -12.5),
+        });
+        userMarker.setMap(map);
+        userMarker.setLabel({
+          content: '📍 你的位置',
+          direction: 'top',
+        });
 
-      // 用户位置标记
-      const userIcon = L.divIcon({
-        className: 'user-location-icon',
-        html: `<div style="background-color: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);"></div>`,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      });
+        mapInstanceRef.current = map;
+      } catch (err) {
+        console.error('Map initialization error:', err);
+        setError('地图初始化失败');
+      }
+    };
 
-      L.marker([location.lat, location.lng], { icon: userIcon })
-        .addTo(map)
-        .bindPopup('📍 你的位置');
-
-      mapInstanceRef.current = map;
-      setMapReady(true);
-    } catch (err) {
-      console.error('Map initialization error:', err);
-      setError('地图初始化失败');
-    }
+    initMap();
 
     return () => {
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+        mapInstanceRef.current.destroy();
         mapInstanceRef.current = null;
       }
     };
-  }, [location, mapReady]);
+  }, [location]);
 
   // 更新宝藏标记
   useEffect(() => {
-    if (!mapInstanceRef.current || !L) return;
+    if (!mapInstanceRef.current || !window.AMap) return;
 
-    markersRef.current.forEach(marker => marker.remove());
+    // 清除旧标记
+    markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
 
+    // 添加新标记
     items.forEach((item) => {
-      const icon = L.divIcon({
-        className: 'item-icon',
-        html: `<div style="background-color: ${RARITY_COLORS[item.itemRarity as ItemRarity]}; width: 36px; height: 36px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 10px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer;">💎</div>`,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
+      const marker = new window.AMap.Marker({
+        position: [item.longitude, item.latitude],
+        icon: new window.AMap.Icon({
+          size: new window.AMap.Size(36, 36),
+          image: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="15" fill="${RARITY_COLORS[item.itemRarity as ItemRarity]}" stroke="white" stroke-width="3"/>
+              <text x="18" y="23" text-anchor="middle" font-size="16">💎</text>
+            </svg>
+          `),
+          imageSize: new window.AMap.Size(36, 36),
+        }),
+        offset: new window.AMap.Pixel(-18, -18),
       });
 
-      const marker = L.marker([item.latitude, item.longitude], { icon })
-        .addTo(mapInstanceRef.current)
-        .bindPopup(`<b>${item.itemName}</b><br/>${RARITY_NAMES[item.itemRarity as ItemRarity]}`);
+      marker.setMap(mapInstanceRef.current);
+      marker.setLabel({
+        content: `<b>${item.itemName}</b><br/>${RARITY_NAMES[item.itemRarity as ItemRarity]}`,
+        direction: 'top',
+      });
 
       marker.on('click', () => setSelectedItem(item));
       markersRef.current.push(marker);

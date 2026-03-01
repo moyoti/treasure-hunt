@@ -20,17 +20,10 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <head>
-        {/* Mapbox GL CSS */}
-        <link
-          href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css"
-          rel="stylesheet"
-        />
-        {/* Leaflet CSS - 必须在 head 中加载 */}
-        <link
-          rel="stylesheet"
-          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-          crossOrigin=""
+        {/* 高德地图 JS API */}
+        <script
+          src="https://webapi.amap.com/maps?v=2.0&key=897b2837359811602eb5d7b8d38af011"
+          async
         />
       </head>
       <body className={`${inter.className} bg-dark-300 text-white`}>

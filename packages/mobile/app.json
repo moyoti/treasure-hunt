@@ -21,9 +21,6 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "我们需要您的位置来检测附近的宝藏",
         "NSLocationAlwaysUsageDescription": "我们需要您的位置来检测附近的宝藏",
         "UIUserInterfaceStyle": "Light"
-      },
-      "config": {
-        "googleMapsApiKey": ""
       }
     },
     "android": {

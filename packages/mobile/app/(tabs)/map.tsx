@@ -7,8 +7,9 @@ import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { MapView, Marker, MapViewProps } from 'react-native-amap3d';
 import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
 import { getNearbyItems, collectItem } from '@/api/items';
@@ -16,10 +17,13 @@ import { ItemRarity } from '@/types';
 
 const { width, height } = Dimensions.get('window');
 
-// Default region (San Francisco)
+// 高德地图 API Key
+const AMAP_API_KEY = '897b2837359811602eb5d7b8d38af011';
+
+// 默认位置 (北京)
 const DEFAULT_REGION = {
-  latitude: 37.78825,
-  longitude: -122.4324,
+  latitude: 39.9042,
+  longitude: 116.4074,
   latitudeDelta: 0.0922,
   longitudeDelta: 0.0421,
 };
@@ -149,22 +153,37 @@ export default function MapScreen() {
     <View style={styles.container}>
       <MapView
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
-        region={mapRegion}
+        initialCameraPosition={{
+          target: {
+            latitude: mapRegion.latitude,
+            longitude: mapRegion.longitude,
+          },
+          zoom: 15,
+        }}
         showsUserLocation={true}
-        showsMyLocationButton={true}
-        followsUserLocation={false}
-        onRegionChangeComplete={setMapRegion}
+        showsCompass={true}
+        showsScale={true}
+        zoomControlsEnabled={false}
+        onCameraIdle={(event) => {
+          if (event.nativeEvent) {
+            setMapRegion({
+              latitude: event.nativeEvent.latitude,
+              longitude: event.nativeEvent.longitude,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            });
+          }
+        }}
       >
         {items.map((item) => (
           <Marker
             key={item.id}
-            coordinate={{
+            position={{
               latitude: item.latitude,
               longitude: item.longitude,
             }}
             title={item.itemName}
-            description={`${item.itemRarity} - ${item.poiName || '宝藏'}`}
+            snippet={`${item.itemRarity} - ${item.poiName || '宝藏'}`}
             onPress={() => handleMarkerPress(item)}
           >
             <View
