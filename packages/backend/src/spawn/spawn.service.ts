@@ -133,6 +133,36 @@ export class SpawnService implements OnModuleInit {
     return result.affected || 0;
   }
 
+  async spawnItemsNearLocation(
+    latitude: number,
+    longitude: number,
+    count: number = 10,
+  ): Promise<SpawnedItem[]> {
+    const spawnedItems: SpawnedItem[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const item = await this.itemService.getRandomItemByWeight();
+      const offset = this.getRandomOffset(500); // 500米范围内
+
+      const spawnedItem = this.spawnedItemRepository.create({
+        latitude: latitude + offset.lat,
+        longitude: longitude + offset.lng,
+        item,
+        itemId: item.id,
+        isActive: true,
+        expiresAt: this.getExpirationDate(),
+        poiLatitude: latitude,
+        poiLongitude: longitude,
+        poiName: '测试宝藏点',
+      });
+
+      spawnedItems.push(await this.spawnedItemRepository.save(spawnedItem));
+    }
+
+    this.logger.log(`Spawned ${spawnedItems.length} items near (${latitude}, ${longitude})`);
+    return spawnedItems;
+  }
+
   private getExpirationDate(): Date {
     const date = new Date();
     date.setHours(date.getHours() + 24);

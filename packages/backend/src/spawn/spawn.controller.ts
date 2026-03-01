@@ -40,4 +40,15 @@ export class SpawnController {
   async spawnItems(@Query('count') count?: string) {
     return this.spawnService.spawnItemsAtPois(count ? parseInt(count) : 50);
   }
+
+  @Post('spawn-nearby')
+  async spawnNearbyItems(
+    @Body() body: { latitude: number; longitude: number; count?: number },
+  ) {
+    return this.spawnService.spawnItemsNearLocation(
+      body.latitude,
+      body.longitude,
+      body.count || 10,
+    );
+  }
 }
