@@ -6,8 +6,8 @@ import { getNearbyItems, collectItem } from '@/lib/api';
 import { SpawnedItem, ItemRarity } from '@/types';
 import { useRouter } from 'next/navigation';
 
-// 高德地图 API Key
-const AMAP_KEY = '897b2837359811602eb5d7b8d38af011';
+// 高德地图 API Key (Web 端专用)
+const AMAP_KEY = '68eb7700f1011a06dedbb0daabddd770';
 
 const RARITY_COLORS: Record<ItemRarity, string> = {
   common: '#9ca3af',

@@ -22,7 +22,7 @@ export default function RootLayout({
       <head>
         {/* 高德地图 JS API */}
         <script
-          src="https://webapi.amap.com/maps?v=2.0&key=897b2837359811602eb5d7b8d38af011"
+          src="https://webapi.amap.com/maps?v=2.0&key=68eb7700f1011a06dedbb0daabddd770"
           async
         />
       </head>
